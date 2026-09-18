@@ -239,10 +239,26 @@ public class VoiceProcessor {
         sampleRate_ = sampleRate
 
         do {
-            try AVAudioSession.sharedInstance().setCategory(
-                    AVAudioSession.Category.playAndRecord,
-                    options: [.mixWithOthers, .allowAirPlay, .allowBluetoothA2DP])
-            try AVAudioSession.sharedInstance().setActive(
+            let session = AVAudioSession.sharedInstance()
+            let desiredCategory = AVAudioSession.Category.playAndRecord
+            let desiredMode = AVAudioSession.Mode.default
+            let desiredOptions: AVAudioSession.CategoryOptions =
+                    [.mixWithOthers, .allowAirPlay, .allowBluetoothA2DP, .defaultToSpeaker]
+
+            // A category change (as opposed to re-activating an already-active
+            // session) is what iOS treats as a deactivate/reactivate cycle, which
+            // can interrupt whatever other app is currently playing audio. Skip it
+            // entirely when the session is already configured the way we want it -
+            // e.g. this start() call running again after the app resumes from
+            // background with no intervening category change from anything else.
+            if session.category != desiredCategory ||
+                       session.mode != desiredMode ||
+                       session.categoryOptions != desiredOptions {
+                try session.setCategory(desiredCategory, mode: desiredMode, options: desiredOptions)
+            } else {
+                print("[VoiceProcessor] audio session already configured as desired; skipping setCategory")
+            }
+            try session.setActive(
                     true,
                     options: .notifyOthersOnDeactivation)
         } catch {
